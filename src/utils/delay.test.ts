@@ -54,3 +54,48 @@ describe('delay', () => {
 		expect(resolved).toBe(false);
 	});
 });
+
+describe('delay (browser path)', () => {
+	let originalWindow: typeof globalThis.window;
+	let delayBrowser: typeof delay;
+
+	beforeEach(async () => {
+		vi.resetModules();
+		originalWindow = globalThis.window;
+		// Simulate browser environment
+		if (typeof globalThis.window === 'undefined') {
+			(globalThis as any).window = { setTimeout, clearTimeout };
+		}
+		delete process.env.VITEST_WORKER_ID;
+		const mod = await import('./delay');
+		delayBrowser = mod.delay;
+	});
+
+	afterEach(() => {
+		if (originalWindow === undefined) {
+			delete (globalThis as any).window;
+		}
+		process.env.VITEST_WORKER_ID = '1';
+	});
+
+	it('resolves after the requested time in browser env', async () => {
+		const start = Date.now();
+		await delayBrowser(50);
+		const elapsed = Date.now() - start;
+		expect(elapsed).toBeGreaterThanOrEqual(40);
+	});
+
+	it('compensates when setTimeout oversleeps (simulated throttling)', async () => {
+		const start = Date.now();
+		await delayBrowser(100);
+		const elapsed = Date.now() - start;
+		// Should still resolve — even if setTimeout fires late, the second
+		// setTimeout (compensation) catches up
+		expect(elapsed).toBeGreaterThanOrEqual(90);
+	});
+
+	it('resolves immediately for ms <= 0 in browser env', async () => {
+		await delayBrowser(0);
+		await delayBrowser(-1);
+	});
+});

@@ -328,4 +328,109 @@ describe('instantChecks utilities', () => {
 			expect(getState()[0].files).toHaveLength(0);
 		});
 	});
+
+	describe('batch processing', () => {
+		const identity = (r: any[]) => r;
+
+		it('processes all hash batches through rate limiter for RD', async () => {
+			const hashes = Array.from({ length: 250 }, (_, i) => `hash-${i}`);
+			const torrents = hashes.map((hash) => ({
+				hash,
+				noVideos: false,
+				rdAvailable: false,
+				files: [],
+			}));
+
+			mockCheckAvailability.mockImplementation(async (_p, _s, _id, hashGroup: string[]) => ({
+				available: hashGroup.map((h: string) => ({
+					hash: h,
+					files: [{ file_id: 1, path: 'Movie.mkv', bytes: 2048 }],
+				})),
+			}));
+
+			const { setter, getState } = createStateHarness(torrents as any[]);
+
+			const hits = await checkDatabaseAvailabilityRd(
+				'problem',
+				'solution',
+				'tt9999999',
+				hashes,
+				setter,
+				identity
+			);
+
+			// 250 hashes / 100 batch size = 3 batches
+			expect(mockCheckAvailability).toHaveBeenCalledTimes(3);
+			expect(hits).toBe(250);
+			expect(getState().every((t: any) => t.rdAvailable)).toBe(true);
+		});
+
+		it('processes all hash batches for RD2 (hash-only variant)', async () => {
+			const hashes = Array.from({ length: 150 }, (_, i) => `hash-${i}`);
+			const torrents = hashes.map((hash) => ({
+				hash,
+				noVideos: false,
+				rdAvailable: false,
+				files: [],
+			}));
+
+			mockCheckAvailabilityByHashes.mockImplementation(
+				async (_p: string, _s: string, hashGroup: string[]) => ({
+					available: hashGroup.map((h: string) => ({
+						hash: h,
+						files: [{ file_id: 1, path: 'Movie.mkv', bytes: 1024 }],
+					})),
+				})
+			);
+
+			const { setter, getState } = createStateHarness(torrents as any[]);
+
+			const hits = await checkDatabaseAvailabilityRd2(
+				'problem',
+				'solution',
+				'rd-key',
+				hashes,
+				setter
+			);
+
+			// 150 hashes / 100 batch size = 2 batches
+			expect(mockCheckAvailabilityByHashes).toHaveBeenCalledTimes(2);
+			expect(hits).toBe(150);
+			expect(getState().every((t: any) => t.rdAvailable)).toBe(true);
+		});
+
+		it('handles partial availability across batches', async () => {
+			const hashes = ['hash-0', 'hash-1', 'hash-2', 'hash-3'];
+			const torrents = hashes.map((hash) => ({
+				hash,
+				noVideos: false,
+				rdAvailable: false,
+				files: [],
+			}));
+
+			mockCheckAvailability.mockResolvedValue({
+				available: [
+					{ hash: 'hash-0', files: [{ file_id: 1, path: 'A.mkv', bytes: 1024 }] },
+					{ hash: 'hash-2', files: [{ file_id: 1, path: 'B.mkv', bytes: 2048 }] },
+				],
+			} as any);
+
+			const { setter, getState } = createStateHarness(torrents as any[]);
+
+			const hits = await checkDatabaseAvailabilityRd(
+				'problem',
+				'solution',
+				'tt0000001',
+				hashes,
+				setter,
+				identity
+			);
+
+			expect(hits).toBe(2);
+			expect(getState()[0].rdAvailable).toBe(true);
+			expect(getState()[1].rdAvailable).toBe(false);
+			expect(getState()[2].rdAvailable).toBe(true);
+			expect(getState()[3].rdAvailable).toBe(false);
+		});
+	});
 });
