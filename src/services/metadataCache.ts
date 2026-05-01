@@ -207,6 +207,17 @@ export class MetadataCacheService {
 		return this.fetchWithCache(url, cacheKey, 'tmdb_tv');
 	}
 
+	async getTmdbExternalIds(tmdbId: string | number, mediaType: 'movie' | 'tv'): Promise<any> {
+		const tmdbKey = process.env.TMDB_KEY || this.runtimeConfig.tmdbKey;
+		if (!tmdbKey) {
+			throw new Error('TMDB_KEY environment variable is not set');
+		}
+
+		const url = `https://api.themoviedb.org/3/${mediaType}/${tmdbId}/external_ids?api_key=${tmdbKey}`;
+		const cacheKey = `tmdb_external_ids_${mediaType}_${tmdbId}`;
+		return this.fetchWithCache(url, cacheKey, 'tmdb_external_ids');
+	}
+
 	/**
 	 * Get Trakt trending with caching (short cache for trending data)
 	 */
