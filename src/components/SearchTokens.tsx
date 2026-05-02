@@ -11,6 +11,7 @@ const SearchTokens: FC<SearchTokensProps> = ({ title, year, isShow = false, onTo
 	// Split title into words and filter out empty strings
 	const titleWords = title
 		.toLowerCase()
+		.replace(/:/g, '')
 		.split(/\s+/)
 		.filter((word) => word.length > 0);
 

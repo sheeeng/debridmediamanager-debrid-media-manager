@@ -9,3 +9,5 @@ export const defaultAvailabilityCheckLimit = '0';
 export const defaultOtherStreamsLimit = '5';
 export const defaultShowCalendarAddButtonsGoogle = false;
 export const defaultShowCalendarAddButtonsApple = false;
+
+export const defaultMovieYearFilter = false;

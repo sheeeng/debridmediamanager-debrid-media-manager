@@ -27,6 +27,7 @@ import { isVideo } from '@/utils/selectable';
 import {
 	defaultTorrentsFilter as defaultFilterSetting,
 	defaultMovieSize,
+	defaultMovieYearFilter,
 	defaultPlayer,
 } from '@/utils/settings';
 import { castToastOptions, searchToastOptions } from '@/utils/toastOptions';
@@ -91,6 +92,10 @@ const MovieSearch: FunctionComponent = () => {
 	const defaultTorrentsFilter = getLocalStorageItemOrDefault(
 		'settings:defaultTorrentsFilter',
 		defaultFilterSetting
+	);
+	const movieYearFilter = getLocalStorageBoolean(
+		'settings:movieYearFilter',
+		defaultMovieYearFilter
 	);
 	const { publicRuntimeConfig: config } = getConfig();
 
@@ -198,6 +203,14 @@ const MovieSearch: FunctionComponent = () => {
 		fetchMovieInfo();
 	}, [imdbid]);
 
+	// Apply year prefilter when movie info loads
+	const hasAppliedYearFilter = useRef(false);
+	useEffect(() => {
+		if (!movieYearFilter || !movieInfo.year || hasAppliedYearFilter.current) return;
+		hasAppliedYearFilter.current = true;
+		setQuery((prev) => (prev ? `${prev} ${movieInfo.year}` : movieInfo.year));
+	}, [movieYearFilter, movieInfo.year]);
+
 	// Initialize data
 	useEffect(() => {
 		if (!imdbid) return;
@@ -270,6 +283,7 @@ const MovieSearch: FunctionComponent = () => {
 	// Reset tracker stats flag when search changes
 	useEffect(() => {
 		hasLoadedTrackerStats.current = false;
+		hasAppliedYearFilter.current = false;
 	}, [imdbid]);
 
 	async function fetchData(imdbId: string, page: number = 0) {

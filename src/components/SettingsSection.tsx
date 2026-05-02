@@ -8,6 +8,7 @@ import {
 	defaultEpisodeSize,
 	defaultMagnetHandlerEnabled,
 	defaultMovieSize,
+	defaultMovieYearFilter,
 	defaultOtherStreamsLimit,
 	defaultPlayer,
 	defaultShowCalendarAddButtonsApple,
@@ -35,6 +36,9 @@ export const SettingsSection = () => {
 	);
 	const [onlyTrustedTorrents, setOnlyTrustedTorrents] = useState(() =>
 		getLocalStorageBoolean('settings:onlyTrustedTorrents', false)
+	);
+	const [movieYearFilter, setMovieYearFilter] = useState(() =>
+		getLocalStorageBoolean('settings:movieYearFilter', defaultMovieYearFilter)
 	);
 	const [defaultTorrentsFilterValue, setDefaultTorrentsFilterValue] = useState(() =>
 		getLocalStorageItemOrDefault('settings:defaultTorrentsFilter', defaultTorrentsFilter)
@@ -219,6 +223,13 @@ export const SettingsSection = () => {
 		setOnlyTrustedTorrents(checked);
 		if (typeof localStorage !== 'undefined')
 			localStorage.setItem('settings:onlyTrustedTorrents', String(checked));
+	};
+
+	const handleMovieYearFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+		const checked = e.target.checked;
+		setMovieYearFilter(checked);
+		if (typeof localStorage !== 'undefined')
+			localStorage.setItem('settings:movieYearFilter', String(checked));
 	};
 
 	const handleDownloadMagnetsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -582,6 +593,26 @@ export const SettingsSection = () => {
 									/>
 									<label className="font-semibold">Only trusted torrents</label>
 								</div>
+
+								<div className="flex items-center gap-2">
+									<input
+										id="dmm-movie-year-filter"
+										type="checkbox"
+										className="h-5 w-5 rounded border-gray-600 bg-gray-800"
+										checked={movieYearFilter}
+										onChange={handleMovieYearFilterChange}
+									/>
+									<label
+										htmlFor="dmm-movie-year-filter"
+										className="font-semibold"
+									>
+										Prefilter movies by year
+									</label>
+								</div>
+								<p className="-mt-2 text-xs text-gray-400">
+									Automatically filter movie results to show only torrents
+									matching the release year
+								</p>
 
 								<div className="flex flex-col gap-2 rounded border-2 border-blue-500/30 p-3">
 									<div className="text-sm font-semibold text-blue-200">

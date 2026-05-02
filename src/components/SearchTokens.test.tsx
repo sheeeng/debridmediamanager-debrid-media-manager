@@ -77,6 +77,17 @@ describe('SearchTokens', () => {
 		expect(screen.getByText('title')).toBeInTheDocument();
 	});
 
+	it('strips colons from title tokens', () => {
+		const onTokenClick = vi.fn();
+		render(
+			<SearchTokens title="Spider-Man: No Way Home" year="2021" onTokenClick={onTokenClick} />
+		);
+
+		expect(screen.getByText('spider-man')).toBeInTheDocument();
+		expect(screen.getByText('no')).toBeInTheDocument();
+		expect(screen.queryByText('spider-man:')).not.toBeInTheDocument();
+	});
+
 	it('applies correct CSS classes for styling', () => {
 		const onTokenClick = vi.fn();
 		const { container } = render(
