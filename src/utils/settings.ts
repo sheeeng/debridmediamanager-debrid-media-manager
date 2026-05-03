@@ -11,3 +11,4 @@ export const defaultShowCalendarAddButtonsGoogle = false;
 export const defaultShowCalendarAddButtonsApple = false;
 
 export const defaultMovieYearFilter = 'off';
+export const defaultShowSeasonFilter = false;

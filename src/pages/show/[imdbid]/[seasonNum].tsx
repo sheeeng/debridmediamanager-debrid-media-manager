@@ -8,7 +8,7 @@ import { useAvailabilityCheck } from '@/hooks/useAvailabilityCheck';
 import { useExternalSources } from '@/hooks/useExternalSources';
 import { useMassReport } from '@/hooks/useMassReport';
 import { useTorrentManagement } from '@/hooks/useTorrentManagement';
-import { SearchApiResponse, SearchResult } from '@/services/mediasearch';
+import { SearchApiResponse, SearchResult, hasSubstantialTitle } from '@/services/mediasearch';
 import { TorrentInfoResponse } from '@/services/types';
 import UserTorrentDB from '@/torrent/db';
 import { handleCastTvShowAllDebrid } from '@/utils/allDebridCastApiClient';
@@ -29,11 +29,13 @@ import {
 } from '@/utils/instantChecks';
 import { quickSearch } from '@/utils/quickSearch';
 import { sortByMedian } from '@/utils/results';
+import { buildSeasonRegex } from '@/utils/seasonFilter';
 import { isVideo } from '@/utils/selectable';
 import {
 	defaultEpisodeSize,
 	defaultTorrentsFilter as defaultFilterSetting,
 	defaultPlayer,
+	defaultShowSeasonFilter,
 } from '@/utils/settings';
 import { castToastOptions, searchToastOptions } from '@/utils/toastOptions';
 import { generateTokenAndHash } from '@/utils/token';
@@ -76,6 +78,10 @@ const TvSearch: FunctionComponent = () => {
 	const storedTorrentsFilter = useMemo(
 		() => getLocalStorageItemOrDefault('settings:defaultTorrentsFilter', defaultFilterSetting),
 		[]
+	);
+	const showSeasonFilter = getLocalStorageBoolean(
+		'settings:showSeasonFilter',
+		defaultShowSeasonFilter
 	);
 
 	const [showInfo, setShowInfo] = useState<ShowInfo | null>(null);
@@ -223,6 +229,19 @@ const TvSearch: FunctionComponent = () => {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [imdbid, seasonNum, isLoading, storedTorrentsFilter]);
 
+	// Apply season prefilter when season loads
+	const hasAppliedSeasonFilter = useRef<string | null>(null);
+	useEffect(() => {
+		if (!showSeasonFilter || !seasonNum || isLoading) return;
+		const sn = Array.isArray(seasonNum) ? seasonNum[0] : seasonNum;
+		if (!sn || hasAppliedSeasonFilter.current === sn) return;
+		const seasonNumParsed = parseInt(sn, 10);
+		if (isNaN(seasonNumParsed)) return;
+		hasAppliedSeasonFilter.current = sn;
+		const seasonPattern = buildSeasonRegex(seasonNumParsed);
+		setQuery((prev) => (prev ? `${prev} ${seasonPattern}` : seasonPattern));
+	}, [showSeasonFilter, seasonNum, isLoading]);
+
 	useEffect(() => {
 		return () => {
 			isMounted.current = false;
@@ -281,6 +300,7 @@ const TvSearch: FunctionComponent = () => {
 						(r) =>
 							r.hash &&
 							!existingHashes.has(r.hash) &&
+							hasSubstantialTitle(r.title) &&
 							(titleStartsWithYear || !/^\d{4}\)/.test(r.title))
 					);
 

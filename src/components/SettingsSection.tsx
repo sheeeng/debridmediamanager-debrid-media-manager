@@ -13,6 +13,7 @@ import {
 	defaultPlayer,
 	defaultShowCalendarAddButtonsApple,
 	defaultShowCalendarAddButtonsGoogle,
+	defaultShowSeasonFilter,
 	defaultTorrentsFilter,
 } from '../utils/settings';
 import { updateTorBoxSizeLimits } from '../utils/torboxCastApiClient';
@@ -39,6 +40,9 @@ export const SettingsSection = () => {
 	);
 	const [movieYearFilter, setMovieYearFilter] = useState(() =>
 		getLocalStorageItemOrDefault('settings:movieYearFilter', defaultMovieYearFilter)
+	);
+	const [showSeasonFilter, setShowSeasonFilter] = useState(() =>
+		getLocalStorageBoolean('settings:showSeasonFilter', defaultShowSeasonFilter)
 	);
 	const [defaultTorrentsFilterValue, setDefaultTorrentsFilterValue] = useState(() =>
 		getLocalStorageItemOrDefault('settings:defaultTorrentsFilter', defaultTorrentsFilter)
@@ -230,6 +234,13 @@ export const SettingsSection = () => {
 		setMovieYearFilter(value);
 		if (typeof localStorage !== 'undefined')
 			localStorage.setItem('settings:movieYearFilter', value);
+	};
+
+	const handleShowSeasonFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+		const checked = e.target.checked;
+		setShowSeasonFilter(checked);
+		if (typeof localStorage !== 'undefined')
+			localStorage.setItem('settings:showSeasonFilter', String(checked));
 	};
 
 	const handleDownloadMagnetsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -612,6 +623,28 @@ export const SettingsSection = () => {
 									<p className="mt-1 text-xs text-gray-400">
 										Automatically filter movie results by release year with
 										optional tolerance for off-by-one metadata
+									</p>
+								</div>
+
+								<div className="flex flex-col gap-1">
+									<div className="flex items-center gap-2">
+										<input
+											id="dmm-show-season-filter"
+											type="checkbox"
+											className="h-5 w-5 rounded border-gray-600 bg-gray-800"
+											checked={showSeasonFilter}
+											onChange={handleShowSeasonFilterChange}
+										/>
+										<label
+											htmlFor="dmm-show-season-filter"
+											className="font-semibold"
+										>
+											Prefilter shows by season
+										</label>
+									</div>
+									<p className="mt-1 text-xs text-gray-400">
+										Automatically filter TV show results by season number (e.g.
+										S01, Season 1)
 									</p>
 								</div>
 
