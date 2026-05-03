@@ -51,6 +51,7 @@ const getTbError = (error: unknown): string | null => {
 };
 
 const retryDelay = process.env.VITEST_WORKER_ID ? 0 : 5000;
+const infoRetryDelay = process.env.VITEST_WORKER_ID ? 0 : 2000;
 const MAX_509_RETRIES = 5;
 
 export const handleAddAsMagnetInRd = async (
@@ -63,7 +64,14 @@ export const handleAddAsMagnetInRd = async (
 	try {
 		const id = await addHashAsMagnet(rdKey, hash);
 		await handleSelectFilesInRd(rdKey, `rd:${id}`);
-		const response = await getTorrentInfo(rdKey, id);
+		let response = await getTorrentInfo(rdKey, id);
+		if (response.status !== 'downloaded') {
+			for (let i = 0; i < 3; i++) {
+				await delay(infoRetryDelay);
+				response = await getTorrentInfo(rdKey, id);
+				if (response.status === 'downloaded') break;
+			}
+		}
 		if (response.status === 'downloaded') {
 			toast.success('Torrent added.', magnetToastOptions);
 			if (callback) await callback(response);
