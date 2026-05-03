@@ -725,19 +725,12 @@ const TvSearch: FunctionComponent = () => {
 		window.open(`stremio://detail/series/${imdbid}/${imdbid}:${seasonNum}:1`);
 	}
 
-	// Helper function to find the first complete season torrent
-	const getFirstCompleteSeasonTorrent = () => {
-		// Find torrents that have all or most episodes for the season
-		// A complete season typically has videoCount close to expectedEpisodeCount
-		return filteredResults.find((result) => {
-			// Must be available in RD
+	// Helper function to find all complete season torrents (RD-available with matching episode count)
+	const getCompleteSeasonTorrents = () => {
+		const minEpisodes = Math.max(1, expectedEpisodeCount - 2);
+		const maxEpisodes = expectedEpisodeCount + 2;
+		return filteredResults.filter((result) => {
 			if (!result.rdAvailable) return false;
-
-			// Check if it has enough videos for a complete season
-			// Allow some flexibility (e.g., season might have 22 episodes but torrent has 20-24)
-			const minEpisodes = Math.max(1, expectedEpisodeCount - 2);
-			const maxEpisodes = expectedEpisodeCount + 2;
-
 			return result.videoCount >= minEpisodes && result.videoCount <= maxEpisodes;
 		});
 	};
@@ -755,19 +748,25 @@ const TvSearch: FunctionComponent = () => {
 	};
 
 	async function handleInstantRdWholeSeason() {
-		const completeSeasonTorrent = getFirstCompleteSeasonTorrent();
-		if (!completeSeasonTorrent) {
+		const candidates = getCompleteSeasonTorrents();
+		if (candidates.length === 0) {
 			toast.error('No complete season torrents found.');
 			return;
 		}
 
-		// Check if torrent is already in library
-		if (`rd:${completeSeasonTorrent.hash}` in hashAndProgress) {
-			toast.success('Season already in your Real-Debrid library.');
-			return;
+		for (const candidate of candidates) {
+			// Skip if already in library
+			if (`rd:${candidate.hash}` in hashAndProgress) {
+				toast.success('Season already in your Real-Debrid library.');
+				return;
+			}
+
+			// deleteIfNotInstant=true: rejects non-instant torrents (deletes from RD, cleans up DB)
+			const wasInstant = await addRd(candidate.hash, false, true);
+			if (wasInstant) return;
 		}
 
-		addRd(completeSeasonTorrent.hash);
+		toast.error('No truly instant season torrents found. False positives were cleaned up.');
 	}
 
 	async function handleInstantRdEveryEpisode() {
@@ -1016,7 +1015,7 @@ const TvSearch: FunctionComponent = () => {
 							</b>
 						</button>
 					)}
-					{getFirstCompleteSeasonTorrent() && (
+					{getCompleteSeasonTorrents().length > 0 && (
 						<button
 							className="haptic-sm mb-1 mr-2 mt-0 rounded border-2 border-green-500 bg-green-900/30 p-1 text-xs text-green-100 transition-colors hover:bg-green-800/50"
 							onClick={handleInstantRdWholeSeason}

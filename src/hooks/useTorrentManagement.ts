@@ -43,7 +43,11 @@ export function useTorrentManagement(
 	}, []);
 
 	const addRd = useCallback(
-		async (hash: string, isCheckingAvailability = false): Promise<any> => {
+		async (
+			hash: string,
+			isCheckingAvailability = false,
+			deleteIfNotInstant = false
+		): Promise<any> => {
 			if (!rdKey) return;
 
 			// Read searchResults at call time via closure - no need for dependency
@@ -51,57 +55,84 @@ export function useTorrentManagement(
 			const wasMarkedAvailable = torrentResult?.rdAvailable || false;
 			let torrentInfo: TorrentInfoResponse | null = null;
 
-			await handleAddAsMagnetInRd(rdKey, hash, async (info: TorrentInfoResponse) => {
-				torrentInfo = info;
-				const [tokenWithTimestamp, tokenHash] = await generateTokenAndHash();
+			await handleAddAsMagnetInRd(
+				rdKey,
+				hash,
+				async (info: TorrentInfoResponse) => {
+					torrentInfo = info;
+					const [tokenWithTimestamp, tokenHash] = await generateTokenAndHash();
 
-				// Only handle false positives for actual usage, not service checks
-				if (!isCheckingAvailability && wasMarkedAvailable) {
-					// Check for false positive conditions
-					const isFalsePositive =
-						info.status !== 'downloaded' ||
-						info.progress !== 100 ||
-						info.files?.filter((f) => f.selected === 1).length === 0;
+					// Only handle false positives for actual usage, not service checks
+					if (!isCheckingAvailability && wasMarkedAvailable) {
+						// Check for false positive conditions
+						const isFalsePositive =
+							info.status !== 'downloaded' ||
+							info.progress !== 100 ||
+							info.files?.filter((f) => f.selected === 1).length === 0;
 
-					if (isFalsePositive) {
-						// Remove false positive from availability database
-						await removeAvailability(
-							tokenWithTimestamp,
-							tokenHash,
-							hash,
-							`Status: ${info.status}, Progress: ${info.progress}%, Selected files: ${
-								info.files?.filter((f) => f.selected === 1).length || 0
-							}`
-						);
+						if (isFalsePositive) {
+							// Remove false positive from availability database
+							await removeAvailability(
+								tokenWithTimestamp,
+								tokenHash,
+								hash,
+								`Status: ${info.status}, Progress: ${info.progress}%, Selected files: ${
+									info.files?.filter((f) => f.selected === 1).length || 0
+								}`
+							);
 
-						// Update UI
-						setSearchResults((prev) =>
-							prev.map((r) => (r.hash === hash ? { ...r, rdAvailable: false } : r))
-						);
+							// Update UI
+							setSearchResults((prev) =>
+								prev.map((r) =>
+									r.hash === hash ? { ...r, rdAvailable: false } : r
+								)
+							);
 
-						toast.error('Torrent misflagged as RD available.');
+							toast.error('Torrent misflagged as RD available.');
+						}
 					}
-				}
 
-				// Only submit availability for truly available torrents
-				if (info.status === 'downloaded' && info.progress === 100) {
-					await submitAvailability(tokenWithTimestamp, tokenHash, info, imdbId);
-				}
+					// Only submit availability for truly available torrents
+					if (info.status === 'downloaded' && info.progress === 100) {
+						await submitAvailability(tokenWithTimestamp, tokenHash, info, imdbId);
+					}
 
-				const userTorrent = convertToUserTorrent(info);
-				await torrentDB.add(userTorrent);
-				addToCache(userTorrent); // Update global cache
+					const userTorrent = convertToUserTorrent(info);
+					await torrentDB.add(userTorrent);
+					addToCache(userTorrent); // Update global cache
 
-				// Immediately update hashAndProgress state for this torrent
-				setHashAndProgress((prev) => ({
-					...prev,
-					[`${userTorrent.id.substring(0, 3)}${userTorrent.hash}`]: userTorrent.progress,
-				}));
+					// Immediately update hashAndProgress state for this torrent
+					setHashAndProgress((prev) => ({
+						...prev,
+						[`${userTorrent.id.substring(0, 3)}${userTorrent.hash}`]:
+							userTorrent.progress,
+					}));
 
-				await fetchHashAndProgress(hash);
-			});
+					await fetchHashAndProgress(hash);
+				},
+				deleteIfNotInstant
+			);
 
-			return isCheckingAvailability ? torrentInfo : undefined;
+			// When deleteIfNotInstant is true and the torrent wasn't instant,
+			// handleAddAsMagnetInRd deletes the torrent and skips the callback.
+			// Clean up the false positive in the availability database.
+			if (deleteIfNotInstant && torrentInfo === null && wasMarkedAvailable) {
+				const [tokenWithTimestamp, tokenHash] = await generateTokenAndHash();
+				await removeAvailability(
+					tokenWithTimestamp,
+					tokenHash,
+					hash,
+					'Torrent not instant; deleted from RD'
+				);
+				setSearchResults((prev) =>
+					prev.map((r) => (r.hash === hash ? { ...r, rdAvailable: false } : r))
+				);
+			}
+
+			if (isCheckingAvailability) return torrentInfo;
+			// When deleteIfNotInstant, return whether the add succeeded (torrent was instant)
+			if (deleteIfNotInstant) return torrentInfo !== null;
+			return undefined;
 		},
 		[rdKey, setSearchResults, imdbId, fetchHashAndProgress, addToCache, searchResults]
 	);

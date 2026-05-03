@@ -220,7 +220,8 @@ describe('useTorrentManagement', () => {
 		expect(mockHandleAddAsMagnetInRd).toHaveBeenCalledWith(
 			'rd-key',
 			'hash-1',
-			expect.any(Function)
+			expect.any(Function),
+			false
 		);
 		expect(mockSubmitAvailability).toHaveBeenCalledWith(
 			'token-ts',
@@ -245,6 +246,60 @@ describe('useTorrentManagement', () => {
 
 		expect(mockRemoveAvailability).toHaveBeenCalled();
 		expect(setSearchResults).toHaveBeenCalled();
+	});
+
+	it('addRd with deleteIfNotInstant=true returns true when torrent is instant', async () => {
+		currentResults = [createSearchResult({ rdAvailable: true })];
+		const { result } = renderManagementHook();
+
+		let returnValue: any;
+		await act(async () => {
+			returnValue = await result.current.addRd('hash-1', false, true);
+		});
+
+		expect(mockHandleAddAsMagnetInRd).toHaveBeenCalledWith(
+			'rd-key',
+			'hash-1',
+			expect.any(Function),
+			true
+		);
+		expect(returnValue).toBe(true);
+		expect(mockSubmitAvailability).toHaveBeenCalled();
+		expect(mockRemoveAvailability).not.toHaveBeenCalled();
+	});
+
+	it('addRd with deleteIfNotInstant=true returns false and cleans up when torrent is not instant', async () => {
+		// When deleteIfNotInstant=true and torrent is not instant,
+		// handleAddAsMagnetInRd deletes the torrent and does NOT call the callback.
+		mockHandleAddAsMagnetInRd.mockImplementation(
+			async (_rdKey, _hash, _cb, deleteIfNotInstant) => {
+				// Simulate: torrent not instant, callback not called when deleteIfNotInstant=true
+				if (!deleteIfNotInstant) {
+					await _cb(makeTorrentInfo(_hash, { status: 'downloading', progress: 50 }));
+				}
+				// When deleteIfNotInstant=true and not instant: callback is skipped
+			}
+		);
+		currentResults = [createSearchResult({ rdAvailable: true })];
+		const { result } = renderManagementHook();
+
+		let returnValue: any;
+		await act(async () => {
+			returnValue = await result.current.addRd('hash-1', false, true);
+		});
+
+		expect(returnValue).toBe(false);
+		// Should clean up the false positive in availability DB
+		expect(mockRemoveAvailability).toHaveBeenCalledWith(
+			'token-ts',
+			'token-hash',
+			'hash-1',
+			'Torrent not instant; deleted from RD'
+		);
+		// Should update search results to mark as not available
+		expect(setSearchResults).toHaveBeenCalled();
+		const updatedResult = currentResults.find((r: any) => r.hash === 'hash-1');
+		expect(updatedResult?.rdAvailable).toBe(false);
 	});
 
 	it('adds AD torrents via handleAddAsMagnetInAd', async () => {
