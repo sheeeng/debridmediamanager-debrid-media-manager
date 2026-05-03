@@ -41,7 +41,7 @@ describe('SearchTokens', () => {
 		expect(screen.getByText('s12')).toBeInTheDocument();
 	});
 
-	it('calls onTokenClick when a token is clicked', async () => {
+	it('calls onTokenClick with regex-ready filter value', async () => {
 		const onTokenClick = vi.fn();
 		const user = userEvent.setup();
 		render(<SearchTokens title="The Matrix" year="1999" onTokenClick={onTokenClick} />);
@@ -86,6 +86,29 @@ describe('SearchTokens', () => {
 		expect(screen.getByText('spider-man')).toBeInTheDocument();
 		expect(screen.getByText('no')).toBeInTheDocument();
 		expect(screen.queryByText('spider-man:')).not.toBeInTheDocument();
+	});
+
+	it('emits filter value with symbols made optional', async () => {
+		const onTokenClick = vi.fn();
+		const user = userEvent.setup();
+		render(
+			<SearchTokens title="Spider-Man: No Way Home" year="2021" onTokenClick={onTokenClick} />
+		);
+
+		await user.click(screen.getByText('spider-man'));
+
+		// The hyphen should become optional: spider-?man
+		expect(onTokenClick).toHaveBeenCalledWith('spider-?man');
+	});
+
+	it('leaves alphanumeric-only tokens unchanged in filter', async () => {
+		const onTokenClick = vi.fn();
+		const user = userEvent.setup();
+		render(<SearchTokens title="Matrix" year="1999" onTokenClick={onTokenClick} />);
+
+		await user.click(screen.getByText('matrix'));
+
+		expect(onTokenClick).toHaveBeenCalledWith('matrix');
 	});
 
 	it('applies correct CSS classes for styling', () => {

@@ -10,4 +10,4 @@ export const defaultOtherStreamsLimit = '5';
 export const defaultShowCalendarAddButtonsGoogle = false;
 export const defaultShowCalendarAddButtonsApple = false;
 
-export const defaultMovieYearFilter = false;
+export const defaultMovieYearFilter = 'off';

@@ -38,7 +38,7 @@ export const SettingsSection = () => {
 		getLocalStorageBoolean('settings:onlyTrustedTorrents', false)
 	);
 	const [movieYearFilter, setMovieYearFilter] = useState(() =>
-		getLocalStorageBoolean('settings:movieYearFilter', defaultMovieYearFilter)
+		getLocalStorageItemOrDefault('settings:movieYearFilter', defaultMovieYearFilter)
 	);
 	const [defaultTorrentsFilterValue, setDefaultTorrentsFilterValue] = useState(() =>
 		getLocalStorageItemOrDefault('settings:defaultTorrentsFilter', defaultTorrentsFilter)
@@ -225,11 +225,11 @@ export const SettingsSection = () => {
 			localStorage.setItem('settings:onlyTrustedTorrents', String(checked));
 	};
 
-	const handleMovieYearFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-		const checked = e.target.checked;
-		setMovieYearFilter(checked);
+	const handleMovieYearFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+		const value = e.target.value;
+		setMovieYearFilter(value);
 		if (typeof localStorage !== 'undefined')
-			localStorage.setItem('settings:movieYearFilter', String(checked));
+			localStorage.setItem('settings:movieYearFilter', value);
 	};
 
 	const handleDownloadMagnetsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -594,25 +594,26 @@ export const SettingsSection = () => {
 									<label className="font-semibold">Only trusted torrents</label>
 								</div>
 
-								<div className="flex items-center gap-2">
-									<input
-										id="dmm-movie-year-filter"
-										type="checkbox"
-										className="h-5 w-5 rounded border-gray-600 bg-gray-800"
-										checked={movieYearFilter}
-										onChange={handleMovieYearFilterChange}
-									/>
-									<label
-										htmlFor="dmm-movie-year-filter"
-										className="font-semibold"
-									>
+								<div className="flex flex-col gap-1">
+									<label className="font-semibold">
 										Prefilter movies by year
 									</label>
+									<select
+										id="dmm-movie-year-filter"
+										className="w-full rounded bg-gray-800 px-2 py-2.5 text-gray-200"
+										value={movieYearFilter}
+										onChange={handleMovieYearFilterChange}
+									>
+										<option value="off">Off</option>
+										<option value="0">Exact year</option>
+										<option value="1">&plusmn;1 year</option>
+										<option value="2">&plusmn;2 years</option>
+									</select>
+									<p className="mt-1 text-xs text-gray-400">
+										Automatically filter movie results by release year with
+										optional tolerance for off-by-one metadata
+									</p>
 								</div>
-								<p className="-mt-2 text-xs text-gray-400">
-									Automatically filter movie results to show only torrents
-									matching the release year
-								</p>
 
 								<div className="flex flex-col gap-2 rounded border-2 border-blue-500/30 p-3">
 									<div className="text-sm font-semibold text-blue-200">

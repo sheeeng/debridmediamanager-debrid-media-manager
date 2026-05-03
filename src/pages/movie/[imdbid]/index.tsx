@@ -35,6 +35,7 @@ import { generateTokenAndHash } from '@/utils/token';
 import { handleCastMovieTorBox } from '@/utils/torboxCastApiClient';
 import { getMultipleTrackerStats } from '@/utils/trackerStats';
 import { withAuth } from '@/utils/withAuth';
+import { buildYearRegex } from '@/utils/yearFilter';
 import { Cast, CloudOff, Eye as EyeIcon, Loader2, Search, Sparkles, Zap } from 'lucide-react';
 import getConfig from 'next/config';
 import Head from 'next/head';
@@ -93,7 +94,7 @@ const MovieSearch: FunctionComponent = () => {
 		'settings:defaultTorrentsFilter',
 		defaultFilterSetting
 	);
-	const movieYearFilter = getLocalStorageBoolean(
+	const movieYearFilter = getLocalStorageItemOrDefault(
 		'settings:movieYearFilter',
 		defaultMovieYearFilter
 	);
@@ -206,9 +207,14 @@ const MovieSearch: FunctionComponent = () => {
 	// Apply year prefilter when movie info loads
 	const hasAppliedYearFilter = useRef(false);
 	useEffect(() => {
-		if (!movieYearFilter || !movieInfo.year || hasAppliedYearFilter.current) return;
+		if (movieYearFilter === 'off' || !movieInfo.year || hasAppliedYearFilter.current) return;
+		const yearNum = parseInt(movieInfo.year, 10);
+		if (isNaN(yearNum)) return;
 		hasAppliedYearFilter.current = true;
-		setQuery((prev) => (prev ? `${prev} ${movieInfo.year}` : movieInfo.year));
+		const tolerance = parseInt(movieYearFilter, 10);
+		if (isNaN(tolerance)) return;
+		const yearPattern = buildYearRegex(yearNum, tolerance);
+		setQuery((prev) => (prev ? `${prev} ${yearPattern}` : yearPattern));
 	}, [movieYearFilter, movieInfo.year]);
 
 	// Initialize data
