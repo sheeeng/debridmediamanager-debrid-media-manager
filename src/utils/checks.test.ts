@@ -57,6 +57,17 @@ describe('checks utilities', () => {
 		).toBe(true);
 	});
 
+	it('meetsTitleConditions rejects titles that parse to empty (e.g. "1080p")', () => {
+		expect(meetsTitleConditions('Galaxy Quest', ['1999'], '1080p')).toBe(false);
+		expect(meetsTitleConditions('Galaxy Quest', ['1999'], '720p')).toBe(false);
+		expect(meetsTitleConditions('Galaxy Quest', ['1999'], '2160p')).toBe(false);
+		expect(meetsTitleConditions('Galaxy Quest', ['1999'], '4K')).toBe(false);
+		expect(meetsTitleConditions('Galaxy Quest', ['1999'], 'x265')).toBe(false);
+		expect(meetsTitleConditions('Galaxy Quest', ['1999'], 'HEVC')).toBe(false);
+		expect(meetsTitleConditions('Galaxy Quest', ['1999'], 'WEB-DL')).toBe(false);
+		expect(meetsTitleConditions('Galaxy Quest', ['1999'], 'BluRay')).toBe(false);
+	});
+
 	it('collects movie metadata variants from ratings sources', () => {
 		const movieMeta = grabMovieMetadata(
 			'tt10872600',

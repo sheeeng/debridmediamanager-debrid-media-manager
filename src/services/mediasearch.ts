@@ -76,3 +76,21 @@ export const sortByFileSize = (results: ScrapeSearchResult[]): ScrapeSearchResul
 	});
 	return results;
 };
+
+/**
+ * Returns true if the title contains meaningful content beyond video-technical tags.
+ * Rejects titles like "1080p", "720p x265", "WEB-DL", etc.
+ */
+export function hasSubstantialTitle(title: string): boolean {
+	if (!title || !title.trim()) return false;
+	const stripped = title
+		.replace(/\b\d{3,4}p\b/gi, '')
+		.replace(/\b(4k|x26[45]|h\.?26[45]|hevc|avc)\b/gi, '')
+		.replace(/\b(web[-.]?dl|blu[-.]?ray|bdrip|hdrip|hdtv|webrip|dvdrip)\b/gi, '')
+		.replace(/\b(hdr10?|sdr|10bit|8bit|aac|ac3|dts|dd5\.?1|atmos|truehd|flac|mp3)\b/gi, '')
+		.replace(/\b(remux|proper|repack|internal|limited)\b/gi, '')
+		.replace(/[.\-_\[\](){}]/g, ' ')
+		.trim();
+	// Must have 2+ consecutive alphabetical characters OR a season/episode code
+	return /[a-z]{2}/i.test(stripped) || /s\d+e\d+/i.test(stripped);
+}

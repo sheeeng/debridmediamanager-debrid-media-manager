@@ -8,7 +8,7 @@ import { useAvailabilityCheck } from '@/hooks/useAvailabilityCheck';
 import { useExternalSources } from '@/hooks/useExternalSources';
 import { useMassReport } from '@/hooks/useMassReport';
 import { useTorrentManagement } from '@/hooks/useTorrentManagement';
-import { SearchApiResponse, SearchResult } from '@/services/mediasearch';
+import { SearchApiResponse, SearchResult, hasSubstantialTitle } from '@/services/mediasearch';
 import { TorrentInfoResponse } from '@/services/types';
 import UserTorrentDB from '@/torrent/db';
 import { handleCastMovieAllDebrid } from '@/utils/allDebridCastApiClient';
@@ -345,6 +345,7 @@ const MovieSearch: FunctionComponent = () => {
 						(r) =>
 							r.hash &&
 							!existingHashes.has(r.hash) &&
+							hasSubstantialTitle(r.title) &&
 							(titleStartsWithYear || !/^\d{4}\)/.test(r.title))
 					);
 

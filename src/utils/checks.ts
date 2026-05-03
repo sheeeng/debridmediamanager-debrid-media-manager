@@ -331,7 +331,8 @@ export function meetsTitleConditions(
 
 	const targetTitleNoSpecial = targetTitle.replace(/[^a-z0-9\s]/gi, '');
 	const testTitleNoSpecial = information.title.replace(/[^a-z0-9\s]/gi, '');
-	if (targetTitleNoSpecial.includes(testTitleNoSpecial)) return true;
+	if (testTitleNoSpecial.length > 0 && targetTitleNoSpecial.includes(testTitleNoSpecial))
+		return true;
 
 	if (information.group) {
 		testTitle = testTitle.replace(information.group, '');

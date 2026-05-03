@@ -1,4 +1,4 @@
-import { FileData, SearchResult } from '@/services/mediasearch';
+import { FileData, SearchResult, hasSubstantialTitle } from '@/services/mediasearch';
 import { normalizeHash } from '@/utils/extractHashes';
 import axios from 'axios';
 import { useCallback, useEffect, useState } from 'react';
@@ -243,6 +243,7 @@ export function useExternalSources(
 			}
 
 			if (!hash) return null;
+			if (!hasSubstantialTitle(cleanTitle)) return null;
 
 			const filename = stream.behaviorHints?.filename || cleanTitle;
 			const files: FileData[] = [];

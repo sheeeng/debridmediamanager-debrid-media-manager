@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { flattenAndRemoveDuplicates, ScrapeSearchResult, sortByFileSize } from './mediasearch';
+import {
+	flattenAndRemoveDuplicates,
+	hasSubstantialTitle,
+	ScrapeSearchResult,
+	sortByFileSize,
+} from './mediasearch';
 
 describe('mediasearch service', () => {
 	describe('flattenAndRemoveDuplicates', () => {
@@ -152,6 +157,52 @@ describe('mediasearch service', () => {
 
 			expect(result).toBe(input); // Same reference
 			expect(input[0].title).toBe('Large');
+		});
+	});
+
+	describe('hasSubstantialTitle', () => {
+		it('rejects empty/blank titles', () => {
+			expect(hasSubstantialTitle('')).toBe(false);
+			expect(hasSubstantialTitle('  ')).toBe(false);
+			expect(hasSubstantialTitle(undefined as any)).toBe(false);
+		});
+
+		it('rejects titles that are only resolution tags', () => {
+			expect(hasSubstantialTitle('1080p')).toBe(false);
+			expect(hasSubstantialTitle('720p')).toBe(false);
+			expect(hasSubstantialTitle('2160p')).toBe(false);
+			expect(hasSubstantialTitle('4k')).toBe(false);
+			expect(hasSubstantialTitle('4K')).toBe(false);
+		});
+
+		it('rejects titles that are only codec/quality tags', () => {
+			expect(hasSubstantialTitle('x265')).toBe(false);
+			expect(hasSubstantialTitle('H.265')).toBe(false);
+			expect(hasSubstantialTitle('HEVC')).toBe(false);
+			expect(hasSubstantialTitle('WEB-DL')).toBe(false);
+			expect(hasSubstantialTitle('BluRay')).toBe(false);
+		});
+
+		it('rejects titles that are combinations of only technical tags', () => {
+			expect(hasSubstantialTitle('1080p.WEB-DL')).toBe(false);
+			expect(hasSubstantialTitle('720p x265 AAC')).toBe(false);
+			expect(hasSubstantialTitle('2160p.HDR10.HEVC')).toBe(false);
+			expect(hasSubstantialTitle('4K REMUX')).toBe(false);
+		});
+
+		it('accepts normal torrent titles', () => {
+			expect(hasSubstantialTitle('Galaxy.Quest.1999.1080p.BluRay.x264-Group')).toBe(true);
+			expect(hasSubstantialTitle('Breaking Bad S01E01 720p WEB-DL')).toBe(true);
+			expect(hasSubstantialTitle('The Office S05E03')).toBe(true);
+			expect(hasSubstantialTitle('Inception 2010')).toBe(true);
+			expect(hasSubstantialTitle('S01E01 My Episode Title')).toBe(true);
+		});
+
+		it('accepts titles with numeric show names + season/episode codes', () => {
+			expect(hasSubstantialTitle('24 S01E01')).toBe(true);
+			expect(hasSubstantialTitle('1883 S01E01')).toBe(true);
+			expect(hasSubstantialTitle('S01E01')).toBe(true);
+			expect(hasSubstantialTitle('24.S01E01.720p.WEB-DL')).toBe(true);
 		});
 	});
 });
