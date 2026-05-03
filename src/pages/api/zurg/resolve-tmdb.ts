@@ -39,4 +39,4 @@ const handler: NextApiHandler = async (req, res) => {
 	}
 };
 
-export default withIpRateLimit(handler, RATE_LIMIT_CONFIGS.default);
+export default withIpRateLimit(handler, RATE_LIMIT_CONFIGS.zurg);

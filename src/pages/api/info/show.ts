@@ -139,28 +139,65 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 		}
 
 		let trailer = mdbResponse?.trailer ?? '';
+		let status: string | undefined;
+		let next_episode_to_air:
+			| { air_date: string; episode_number: number; season_number: number; name: string }
+			| undefined;
+		let last_episode_to_air:
+			| { air_date: string; episode_number: number; season_number: number; name: string }
+			| undefined;
 
 		if (!trailer && cinemetaResponse.meta?.trailers?.[0]?.source) {
 			trailer = `https://youtube.com/watch?v=${cinemetaResponse.meta.trailers[0].source}`;
 		}
 
-		if (!trailer && mdbResponse?.tmdbid) {
+		// Fetch TMDB TV details for scheduling data and trailer fallback
+		if (mdbResponse?.tmdbid) {
 			try {
 				const tmdbKey = process.env.TMDB_KEY;
 				if (tmdbKey) {
 					const tmdbResponse = await axios.get(
-						`https://api.themoviedb.org/3/tv/${mdbResponse.tmdbid}/videos?api_key=${tmdbKey}`
+						`https://api.themoviedb.org/3/tv/${mdbResponse.tmdbid}?api_key=${tmdbKey}&append_to_response=videos`
 					);
-					const tmdbTrailer = tmdbResponse.data.results?.find(
-						(v: any) => v.type === 'Trailer' && v.site === 'YouTube'
-					);
-					if (tmdbTrailer?.key) {
-						trailer = `https://youtube.com/watch?v=${tmdbTrailer.key}`;
+					const tmdbData = tmdbResponse.data;
+
+					// Extract scheduling data
+					status = tmdbData.status;
+					if (tmdbData.next_episode_to_air) {
+						next_episode_to_air = {
+							air_date: tmdbData.next_episode_to_air.air_date,
+							episode_number: tmdbData.next_episode_to_air.episode_number,
+							season_number: tmdbData.next_episode_to_air.season_number,
+							name: tmdbData.next_episode_to_air.name,
+						};
+					}
+					if (tmdbData.last_episode_to_air) {
+						last_episode_to_air = {
+							air_date: tmdbData.last_episode_to_air.air_date,
+							episode_number: tmdbData.last_episode_to_air.episode_number,
+							season_number: tmdbData.last_episode_to_air.season_number,
+							name: tmdbData.last_episode_to_air.name,
+						};
+					}
+
+					// Trailer fallback from TMDB videos
+					if (!trailer) {
+						const tmdbTrailer = tmdbData.videos?.results?.find(
+							(v: any) => v.type === 'Trailer' && v.site === 'YouTube'
+						);
+						if (tmdbTrailer?.key) {
+							trailer = `https://youtube.com/watch?v=${tmdbTrailer.key}`;
+						}
 					}
 				}
 			} catch (error) {
-				console.error('Error fetching TMDB trailer:', error);
+				console.error('Error fetching TMDB data:', error);
 			}
+		}
+
+		// Fall back to mdblist status if TMDB didn't provide one
+		if (!status) {
+			status = mdbResponse?.status;
 		}
 
 		const responseData = {
@@ -177,6 +214,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 			imdb_score: imdb_score ?? 0,
 			season_episode_counts,
 			trailer,
+			status,
+			next_episode_to_air,
+			last_episode_to_air,
 		};
 
 		console.log(`[show.ts] Final response for ${imdbid}:`, {

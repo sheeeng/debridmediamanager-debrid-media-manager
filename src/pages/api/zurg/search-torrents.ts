@@ -1,10 +1,6 @@
 import { MShow } from '@/services/mdblist';
 import { getMdblistClient } from '@/services/mdblistClient';
-import {
-	ScrapeSearchResult,
-	flattenAndRemoveDuplicates,
-	sortByFileSize,
-} from '@/services/mediasearch';
+import { ScrapeSearchResult, flattenAndRemoveDuplicates } from '@/services/mediasearch';
 import { getMetadataCache } from '@/services/metadataCache';
 import { RATE_LIMIT_CONFIGS, withIpRateLimit } from '@/services/rateLimit/withRateLimit';
 import { repository as db } from '@/services/repository';
@@ -12,11 +8,29 @@ import { NextApiHandler } from 'next';
 import UserAgent from 'user-agents';
 import { validateDmmApiKeyHeader } from './auth';
 
+type Quality = '4k' | '1080p' | '720p' | 'best';
+
+const QUALITY_PATTERNS: Record<string, RegExp> = {
+	'4k': /2160p/i,
+	'1080p': /1080p/i,
+	'720p': /720p/i,
+};
+
+function filterByQuality(results: ScrapeSearchResult[], quality: Quality): ScrapeSearchResult[] {
+	if (quality === 'best') return results;
+
+	const pattern = QUALITY_PATTERNS[quality];
+	if (!pattern) return results;
+
+	return results.filter((t) => pattern.test(t.title));
+}
+
 async function searchTorrentsForKey(
 	key: string,
 	imdbId: string,
 	maxSizeGB: number,
-	limit: number
+	limit: number,
+	quality: Quality
 ): Promise<ScrapeSearchResult[]> {
 	const [trustedResults, untrustedResults] = await Promise.all([
 		db.getScrapedTrueResults<ScrapeSearchResult[]>(key, maxSizeGB),
@@ -30,7 +44,14 @@ async function searchTorrentsForKey(
 	const filtered = combined.filter((t) => t.hash && !reportedHashes.includes(t.hash));
 
 	let processed = flattenAndRemoveDuplicates([filtered]);
-	processed = sortByFileSize(processed);
+	if (processed.length === 0) return [];
+
+	const availableRecords = await db.checkAvailabilityByHashes(processed.map((t) => t.hash));
+	const availableSet = new Set(availableRecords.map((r) => r.hash));
+	processed = processed.filter((t) => availableSet.has(t.hash));
+
+	processed = filterByQuality(processed, quality);
+	processed.sort((a, b) => b.fileSize - a.fileSize);
 
 	return processed.slice(0, limit);
 }
@@ -74,7 +95,7 @@ const handler: NextApiHandler = async (req, res) => {
 
 	if (!(await validateDmmApiKeyHeader(req, res))) return;
 
-	const { imdbId, mediaType, maxSize, limit } = req.body;
+	const { imdbId, mediaType, maxSize, limit, quality } = req.body;
 
 	if (!imdbId || typeof imdbId !== 'string' || !/^tt\d+$/.test(imdbId)) {
 		return res.status(400).json({ error: 'Invalid IMDB ID format. Expected: ttXXXXXXX' });
@@ -83,6 +104,9 @@ const handler: NextApiHandler = async (req, res) => {
 	if (mediaType !== 'movie' && mediaType !== 'tv') {
 		return res.status(400).json({ error: 'mediaType must be "movie" or "tv"' });
 	}
+
+	const validQualities: Quality[] = ['4k', '1080p', '720p', 'best'];
+	const qualityParam: Quality = quality && validQualities.includes(quality) ? quality : 'best';
 
 	const maxSizeGB = maxSize && typeof maxSize === 'number' && maxSize > 0 ? maxSize : 0;
 	const resultLimit =
@@ -94,7 +118,8 @@ const handler: NextApiHandler = async (req, res) => {
 				`movie:${imdbId}`,
 				imdbId,
 				maxSizeGB,
-				resultLimit
+				resultLimit,
+				qualityParam
 			);
 
 			return res.status(200).json({
@@ -107,7 +132,13 @@ const handler: NextApiHandler = async (req, res) => {
 		const seasonCount = await getSeasonCount(imdbId);
 
 		const seasonPromises = Array.from({ length: seasonCount }, (_, i) =>
-			searchTorrentsForKey(`tv:${imdbId}:${i + 1}`, imdbId, maxSizeGB, resultLimit)
+			searchTorrentsForKey(
+				`tv:${imdbId}:${i + 1}`,
+				imdbId,
+				maxSizeGB,
+				resultLimit,
+				qualityParam
+			)
 		);
 
 		const seasonResults = await Promise.all(seasonPromises);

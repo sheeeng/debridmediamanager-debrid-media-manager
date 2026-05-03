@@ -43,13 +43,30 @@ import { handleCastTvShowTorBox } from '@/utils/torboxCastApiClient';
 import { getMultipleTrackerStats } from '@/utils/trackerStats';
 import { withAuth } from '@/utils/withAuth';
 import { AxiosError } from 'axios';
-import { CloudOff, Loader2, RotateCcw, Search, Sparkles, Tv, Zap } from 'lucide-react';
+import {
+	Calendar,
+	CheckCircle,
+	CloudOff,
+	Loader2,
+	RotateCcw,
+	Search,
+	Sparkles,
+	Tv,
+	Zap,
+} from 'lucide-react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { FunctionComponent, useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import toast, { Toaster } from 'react-hot-toast';
+
+type EpisodeAirInfo = {
+	air_date: string;
+	episode_number: number;
+	season_number: number;
+	name: string;
+};
 
 type ShowInfo = {
 	title: string;
@@ -62,6 +79,9 @@ type ShowInfo = {
 	imdb_score: number;
 	season_episode_counts: Record<number, number>;
 	trailer: string;
+	status?: string;
+	next_episode_to_air?: EpisodeAirInfo;
+	last_episode_to_air?: EpisodeAirInfo;
 };
 
 const torrentDB = new UserTorrentDB();
@@ -948,6 +968,98 @@ const TvSearch: FunctionComponent = () => {
 		</div>
 	);
 
+	const formatAirDate = (dateStr: string) => {
+		const date = new Date(dateStr + 'T00:00:00');
+		return date.toLocaleDateString(undefined, {
+			month: 'short',
+			day: 'numeric',
+			year: 'numeric',
+		});
+	};
+
+	const airingStatus = (() => {
+		const status = showInfo.status;
+		const next = showInfo.next_episode_to_air;
+		const last = showInfo.last_episode_to_air;
+		const episodeCount = showInfo.season_episode_counts[selectedSeason] ?? 0;
+
+		if (!status && !next && !last) return null;
+
+		const badges: React.ReactNode[] = [];
+
+		// Show status badge
+		if (status === 'Ended' || status === 'Canceled') {
+			badges.push(
+				<span
+					key="status"
+					className="inline-flex items-center rounded border border-gray-500 bg-gray-800/70 px-2 py-0.5 text-xs text-gray-300"
+				>
+					<CheckCircle className="mr-1 h-3 w-3" />
+					{status === 'Ended' ? 'Series Ended' : 'Series Canceled'}
+				</span>
+			);
+		} else if (status === 'Returning Series') {
+			badges.push(
+				<span
+					key="status"
+					className="inline-flex items-center rounded border border-green-500 bg-green-900/30 px-2 py-0.5 text-xs text-green-100"
+				>
+					Airing
+				</span>
+			);
+		} else if (status === 'In Production' || status === 'Planned' || status === 'Pilot') {
+			badges.push(
+				<span
+					key="status"
+					className="inline-flex items-center rounded border border-yellow-500 bg-yellow-900/30 px-2 py-0.5 text-xs text-yellow-100"
+				>
+					{status === 'Planned' ? 'Upcoming' : 'In Production'}
+				</span>
+			);
+		}
+
+		// Show next episode info
+		if (next) {
+			const epCode = `S${String(next.season_number).padStart(2, '0')}E${String(next.episode_number).padStart(2, '0')}`;
+			badges.push(
+				<span
+					key="next"
+					className="inline-flex items-center rounded border border-cyan-500 bg-cyan-900/30 px-2 py-0.5 text-xs text-cyan-100"
+				>
+					<Calendar className="mr-1 h-3 w-3" />
+					Next: {epCode} &middot; {formatAirDate(next.air_date)}
+				</span>
+			);
+		} else if (status === 'Returning Series' && last) {
+			// Returning but no next episode scheduled yet
+			const epCode = `S${String(last.season_number).padStart(2, '0')}E${String(last.episode_number).padStart(2, '0')}`;
+			badges.push(
+				<span
+					key="last"
+					className="inline-flex items-center rounded border border-blue-500 bg-blue-900/30 px-2 py-0.5 text-xs text-blue-100"
+				>
+					Last aired: {epCode} &middot; {formatAirDate(last.air_date)}
+				</span>
+			);
+		}
+
+		// Show warning for seasons with no episodes
+		if (episodeCount === 0 && selectedSeason > 0) {
+			badges.push(
+				<span
+					key="no-eps"
+					className="inline-flex items-center rounded border border-yellow-500 bg-yellow-900/30 px-2 py-0.5 text-xs text-yellow-100"
+				>
+					No episodes yet for this season
+				</span>
+			);
+		}
+
+		if (badges.length === 0) return null;
+
+		return <div className="flex flex-wrap items-center gap-2">{badges}</div>;
+	})();
+
 	const headerActionButtons = (
 		<div data-testid="media-header-actions">
 			{(rdKey || adKey || torboxKey) && (
@@ -1085,7 +1197,12 @@ const TvSearch: FunctionComponent = () => {
 				descLimit={descLimit}
 				onDescToggle={() => setDescLimit(0)}
 				actionButtons={headerActionButtons}
-				additionalInfo={seasonNavigation}
+				additionalInfo={
+					<>
+						{airingStatus}
+						{seasonNavigation}
+					</>
+				}
 				trailer={showInfo.trailer}
 			/>
 

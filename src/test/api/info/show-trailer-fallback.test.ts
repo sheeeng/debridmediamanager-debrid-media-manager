@@ -82,10 +82,13 @@ describe('/api/info/show - trailer fallback sources', () => {
 
 		(axios.get as any).mockResolvedValue({
 			data: {
-				results: [
-					{ type: 'Trailer', site: 'YouTube', key: 'TMDB_SHOW789' },
-					{ type: 'Teaser', site: 'YouTube', key: 'TMDB_SHOW012' },
-				],
+				status: 'Returning Series',
+				videos: {
+					results: [
+						{ type: 'Trailer', site: 'YouTube', key: 'TMDB_SHOW789' },
+						{ type: 'Teaser', site: 'YouTube', key: 'TMDB_SHOW012' },
+					],
+				},
 			},
 		});
 

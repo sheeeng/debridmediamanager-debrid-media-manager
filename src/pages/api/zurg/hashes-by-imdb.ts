@@ -1,4 +1,5 @@
 import { SizeFilters, SubstringFilters } from '@/services/database/hashSearch';
+import { RATE_LIMIT_CONFIGS, withIpRateLimit } from '@/services/rateLimit/withRateLimit';
 import { repository as db } from '@/services/repository';
 import { NextApiRequest, NextApiResponse } from 'next';
 
@@ -6,7 +7,7 @@ function isValidImdbId(imdbId: string): boolean {
 	return /^tt\d+$/.test(imdbId);
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+async function handler(req: NextApiRequest, res: NextApiResponse) {
 	if (req.method !== 'POST') {
 		return res.status(405).json({ error: 'Method not allowed' });
 	}
@@ -143,3 +144,5 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 		});
 	}
 }
+
+export default withIpRateLimit(handler, RATE_LIMIT_CONFIGS.zurg);
